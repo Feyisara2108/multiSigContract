@@ -36,23 +36,26 @@ contract MultiSig {
 
     //type declaration
     struct Transaction {
-        uint8 id; //txId
-        address _to; //owner
-        bool executed; //check for approval
+        uint256 id; //txId
+        address to; //recipient
+        bool executed; //check for execution
         uint256 approvalCount;
+        uint256 value;
+        data : data;
     }
 
     Transaction[] public transactions;
-    // mapping(uint8 => mapping(address => bool)) public approved;
+    mapping(uint256 => mapping(address => bool)) public approved;
     mapping(address => bool) public isOwner;
 
     //state variable
     address[] public owners;
+    uint256 public __required;
     // address public deployer;
 
     //events
     event Deposit(address indexed sender, uint8 amount);
-    event Submit(uint8 indexed txId);
+    event Submit(uint256 indexed txId);
     event Approve(address indexed owner, uint8 indexed txId);
     event Revert(address indexed owner, uint8 indexed txId);
     event Execute(uint8 indexed txId);
@@ -71,7 +74,7 @@ contract MultiSig {
             owners.push(owner);
         }
 
-        _requiredNumberOfSigners = _requiredNumberOfSigners;
+        required = _requiredNumberOfSigners; // used to know how many approvals are required.
     }
     //modifier
     modifier OnlyOwner() {
@@ -91,38 +94,43 @@ contract MultiSig {
         _;
     }
 
-    // function isOwner()  returns () {
+    function submitTransaction(address to, uint256 value, bytes calldata data) external OnlyOwner {
+        uint256 txId = transactions.length;
+        transactions.push(Transaction({to: to, value: value, bytes: data, executed: false, approvalCount: 0}));
 
-    // }
-    // function submitTransaction( address to,uint256 value,bytes calldata data) external onlyOwner {
-    //     transactions.push(
-    //         Transaction({to: to, value: value, data: data, executed: false})
-    //     );
-    //     emit Submit(transactions.length - 1);
-    // }
+        // emit Submit(transactions.length - 1);
+        emit Submit(txId);
+    }
 
-    // /// @notice Approve a pending transaction (owner‑only)
-    // function approveTransaction(uint256 txId)
-    //     external
-    //     onlyOwner
-    //     txExists(txId)
-    //     notExecuted(txId)
-    //     notApproved(txId)
-    // {
-    //     approved[txId][msg.sender] = true;
-    //     emit Approve(msg.sender, txId);
-    // }
+        function approveTransaction(uint256 txId) external OnlyOwner txExists(txId) notExecuted(txId)  {
+        if (approved[txId][msg.sender]) {
+            revert TransactionAlreadyApproved();
+        }
+         approved[txId][msg.sender] = true; transactions[txId].approvalCount++;   emit Approve(msg.sender, txId);
+    }
+    }
+ 
+// /// @notice Approve a pending transaction (owner‑only)
+// function approveTransaction(uint256 txId)
+//     external
+//     onlyOwner
+//     txExists(txId)
+//     notExecuted(txId)
+//     notApproved(txId)
+// {
+//     approved[txId][msg.sender] = true;
+//     emit Approve(msg.sender, txId);
+// }
 
-    // /// @notice Revoke a previously‑given approval (owner‑only)
-    // function revokeApproval(uint256 txId)
-    //     external
-    //     onlyOwner
-    //     txExists(txId)
-    //     notExecuted(txId)
-    // {
-    //     if (!approved[txId][msg.sender]) revert TransactionNotApproved();
-    //     approved[txId][msg.sender] = false;
-    //     emit Revoke(msg.sender, txId);
-    // }
-}
+// /// @notice Revoke a previously‑given approval (owner‑only)
+// function revokeApproval(uint256 txId)
+//     external
+//     onlyOwner
+//     txExists(txId)
+//     notExecuted(txId)
+// {
+//     if (!approved[txId][msg.sender]) revert TransactionNotApproved();
+//     approved[txId][msg.sender] = false;
+//     emit Revoke(msg.sender, txId);
+// }
 
