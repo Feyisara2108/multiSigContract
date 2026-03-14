@@ -1,24 +1,3 @@
-// Layout of Contract:
-// version
-// imports
-// errors
-// interfaces, libraries, contracts
-// Type declarations
-// State variables
-// Events
-// Modifiers
-// Functions
-
-// Layout of Functions:
-// constructor
-// receive function (if exists)
-// fallback function (if exists)
-// external
-// public
-// internal
-// private
-// view & pure functions
-
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
@@ -82,6 +61,7 @@ contract MultiSig {
 
         requiredNumberOfSigners = _requiredNumberOfSigners; // used to know how many approvals are required.
     }
+
     //modifier
     modifier OnlyOwner() {
         if (!isOwner[msg.sender]) revert NotOwner();
@@ -103,7 +83,10 @@ contract MultiSig {
     function submitTransaction(address _to, uint256 _value) external OnlyOwner {
         uint256 txId = allTransactions.length;
         if (_to == address(0)) revert InvalidAddr();
-        if (_value < 0) revert InvalidAmount();
+
+        if (approvalStatus[txId][msg.sender]) {
+            revert TransactionAlreadyApproved();
+        }
 
         // Transaction memory newTxn = Transaction({id:txId,to: _to, value: _value, executed: false, approvalCount: 0});
         Transaction memory newTxn = Transaction(txId, _to, _value, false, 0);
@@ -134,6 +117,21 @@ contract MultiSig {
         allTransactions[txId].approvalCount--;
 
         emit Revert(msg.sender, txId);
+    }
+
+    function executeTransaction(uint256 txId) external OnlyOwner txExists(txId) notExecuted(txId) {
+        Transaction storage txn = allTransactions[txId];
+
+        if (txn.approvalCount < requiredNumberOfSigners) {
+            revert TransactionNotApproved();
+        }
+
+        txn.executed = true;
+
+        (bool success,) = txn.to.call{value: txn.value}("");
+        require(success, "Transaction execution failed");
+
+        emit Execute(txId);
     }
 }
 
